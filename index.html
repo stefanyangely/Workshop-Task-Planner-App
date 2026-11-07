@@ -1,0 +1,943 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>StudyFlow – Smart Student Task Planner</title>
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/htm@3.1.1/dist/htm.umd.js"></script>
+    <style>
+      :root {
+        --bg: #f5f8fd;
+        --card: #fff;
+        --tx: #0f1b3d;
+        --mut: #6b7794;
+        --bd: #e4eaf5;
+        --navy: #14264f;
+        --soft: #eaf2ff;
+        box-sizing: border-box;
+        padding-top: env(safe-area-inset-top, 0px);
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+      }
+      :root[data-theme="dark"] {
+        --bg: #0b1226;
+        --card: #131c36;
+        --tx: #e8eeff;
+        --mut: #8d9bc0;
+        --bd: #223058;
+        --navy: #4f82e8;
+        --soft: #1b2b55;
+      }
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--tx);
+        font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--bd);
+        border-radius: 18px;
+        box-shadow:
+          0 1px 3px rgba(20, 38, 79, 0.05),
+          0 8px 24px rgba(20, 38, 79, 0.04);
+        transition:
+          box-shadow 0.2s,
+          transform 0.2s;
+      }
+      .hov:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 30px rgba(59, 130, 246, 0.14);
+      }
+      .mut {
+        color: var(--mut);
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 9px 14px;
+        border-radius: 12px;
+        font: 600 14px inherit;
+        font-family: inherit;
+        border: 1px solid var(--bd);
+        background: var(--card);
+        color: var(--tx);
+        cursor: pointer;
+        transition: 0.15s;
+      }
+      .btn:hover {
+        background: var(--soft);
+      }
+      .pri {
+        background: var(--navy);
+        color: #fff;
+        border-color: var(--navy);
+      }
+      .pri:hover {
+        background: var(--navy);
+        opacity: 0.92;
+        transform: translateY(-1px);
+      }
+      .inp {
+        width: 100%;
+        padding: 10px 12px;
+        border-radius: 12px;
+        border: 1px solid var(--bd);
+        background: var(--card);
+        color: var(--tx);
+        font: inherit;
+        font-size: 14px;
+        outline: none;
+        transition: 0.15s;
+      }
+      .inp:focus {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
+      }
+      .nav {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        width: 100%;
+        padding: 10px 12px;
+        border-radius: 12px;
+        font: 600 14px inherit;
+        font-family: inherit;
+        color: var(--mut);
+        border: 0;
+        background: none;
+        cursor: pointer;
+        transition: 0.15s;
+      }
+      .nav:hover {
+        background: var(--soft);
+        color: var(--tx);
+      }
+      .nav.on {
+        background: var(--navy);
+        color: #fff;
+      }
+      .pop {
+        animation: pop 0.2s ease;
+      }
+      @keyframes pop {
+        from {
+          opacity: 0;
+          transform: translateY(8px) scale(0.98);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script>
+      const { useState, useEffect, useRef } = React;
+      const h = htm.bind(React.createElement);
+      const P = {
+        dash: '<rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/>',
+        tasks:
+          '<path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
+        cal: '<path d="M8 2v4M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/>',
+        book: '<path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/>',
+        timer: '<path d="M10 2h4M12 14l3-3"/><circle cx="12" cy="14" r="8"/>',
+        note: '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/><path d="M14 2v4a2 2 0 0 0 2 2h4M8 13h8M8 17h8"/>',
+        chart: '<path d="M3 3v18h18M18 17V9M13 17V5M8 17v-3"/>',
+        gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/>',
+        plus: '<path d="M12 5v14M5 12h14"/>',
+        x: '<path d="M18 6 6 18M6 6l12 12"/>',
+        edit: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
+        trash: '<path d="M3 6h18M19 6l-1 14H6L5 6M8 6V4h8v2"/>',
+        check: '<path d="M20 6 9 17l-5-5"/>',
+        search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+        play: '<path d="M6 3l14 9-14 9z"/>',
+        pause: '<path d="M6 4h4v16H6zM14 4h4v16h-4z"/>',
+        reset: '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>',
+        menu: '<path d="M3 6h18M3 12h18M3 18h18"/>',
+        left: '<path d="m15 18-6-6 6-6"/>',
+        right: '<path d="m9 18 6-6-6-6"/>',
+        sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+        moon: '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z"/>',
+        flame:
+          '<path d="M12 22a7 7 0 0 0 7-7c0-4-4-6-5-11-3 2-9 6-9 12a7 7 0 0 0 7 6z"/>',
+        bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10 21h4"/>',
+      };
+      const I = ({ n, s = 18 }) =>
+        h`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" dangerouslySetInnerHTML=${{ __html: P[n] }}/>`;
+      const uid = () => Math.random().toString(36).slice(2, 9);
+      const k = (d) => {
+        const z = new Date(d);
+        return (
+          z.getFullYear() +
+          "-" +
+          String(z.getMonth() + 1).padStart(2, "0") +
+          "-" +
+          String(z.getDate()).padStart(2, "0")
+        );
+      };
+      const ad = (d, n) => {
+        const z = new Date(d);
+        z.setDate(z.getDate() + n);
+        return z;
+      };
+      const pd = (s) => new Date(s + "T00:00:00");
+      const T = k(new Date());
+      const fmt = (s) =>
+        pd(s).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      const PRI = { High: "#ef4444", Medium: "#f59e0b", Low: "#10b981" };
+      const ST = { todo: "To Do", progress: "In Progress", done: "Completed" };
+      const COLORS = [
+        "#3b82f6",
+        "#8b5cf6",
+        "#10b981",
+        "#f59e0b",
+        "#ef4444",
+        "#ec4899",
+        "#06b6d4",
+        "#64748b",
+      ];
+      const wk = Array.from({ length: 7 }, (_, i) => {
+        const d = ad(new Date(), i - 6);
+        return {
+          key: k(d),
+          l: d.toLocaleDateString("en-US", { weekday: "short" }),
+        };
+      });
+      const beep = () => {
+        try {
+          const a = new AudioContext(),
+            o = a.createOscillator();
+          o.connect(a.destination);
+          o.frequency.value = 880;
+          o.start();
+          setTimeout(() => {
+            o.stop();
+            a.close();
+          }, 400);
+        } catch (e) {}
+      };
+      const seed = () => {
+        const mk = (title, desc, sub, off, pr, st, dn) => ({
+          id: uid(),
+          title,
+          desc,
+          sub,
+          due: k(ad(new Date(), off)),
+          pr,
+          st,
+          doneAt: dn == null ? null : k(ad(new Date(), dn)),
+        });
+        return {
+          subjects: [
+            { id: "s1", name: "Algorithms & Programming", color: "#3b82f6" },
+            { id: "s2", name: "Calculus", color: "#8b5cf6" },
+            { id: "s3", name: "Physics", color: "#10b981" },
+            { id: "s4", name: "English Writing", color: "#f59e0b" },
+          ],
+          tasks: [
+            mk(
+              "Implement bubble sort in C++",
+              "Write it and trace 3 test arrays",
+              "s1",
+              1,
+              "High",
+              "progress",
+            ),
+            mk(
+              "Calculus problem set 4",
+              "Limits, exercises 1–20",
+              "s2",
+              0,
+              "High",
+              "todo",
+            ),
+            mk(
+              "Physics lab report",
+              "Kinematics experiment write-up",
+              "s3",
+              3,
+              "Medium",
+              "todo",
+            ),
+            mk(
+              "Essay draft: technology and society",
+              "800 words, first draft",
+              "s4",
+              5,
+              "Medium",
+              "todo",
+            ),
+            mk("Pointers and arrays worksheet", "", "s1", -2, "High", "todo"),
+            mk("Read physics chapter 2", "", "s3", 7, "Low", "todo"),
+            mk(
+              "Flowchart assignment",
+              "Flowcharts for 5 algorithms",
+              "s1",
+              -1,
+              "Medium",
+              "done",
+              -1,
+            ),
+            mk("Calculus quiz review", "", "s2", -3, "Medium", "done", -3),
+            mk("Vocabulary list", "", "s4", -4, "Low", "done", -4),
+            mk("Loops practice exercises", "", "s1", -5, "Medium", "done", -2),
+            mk("Lab safety quiz", "", "s3", -6, "Low", "done", 0),
+          ],
+          notes: [
+            {
+              id: uid(),
+              title: "Loop types in C++",
+              sub: "s1",
+              body: "for: known iteration count. while: condition checked first. do-while: runs at least once.",
+              at: T,
+            },
+            {
+              id: uid(),
+              title: "Limit laws",
+              sub: "s2",
+              body: "Sum, product and quotient laws hold when each individual limit exists.",
+              at: T,
+            },
+            {
+              id: uid(),
+              title: "Essay structure",
+              sub: "s4",
+              body: "Hook, thesis, three supporting paragraphs, conclusion that restates the thesis.",
+              at: T,
+            },
+          ],
+          sessions: {
+            [k(ad(new Date(), -1))]: 3,
+            [k(ad(new Date(), -2))]: 4,
+            [k(ad(new Date(), -3))]: 2,
+          },
+          user: { name: "Alex", course: "Informatics, Semester 1" },
+          set: {
+            theme: matchMedia("(prefers-color-scheme: dark)").matches
+              ? "dark"
+              : "light",
+            daily: true,
+            alerts: true,
+            sound: true,
+          },
+        };
+      };
+      const useLS = (key, init) => {
+        const [v, s] = useState(() => {
+          try {
+            const r = localStorage.getItem(key);
+            if (r) return JSON.parse(r);
+          } catch (e) {}
+          return init();
+        });
+        useEffect(() => {
+          try {
+            localStorage.setItem(key, JSON.stringify(v));
+          } catch (e) {}
+        }, [key, v]);
+        return [v, s];
+      };
+
+      const Tag = ({ color, children }) =>
+        h`<span class="px-2 py-0.5 rounded-full font-semibold text-[11px]" style=${{ background: color + "22", color }}>${children}<//>`;
+      const F = ({ l, e, children }) =>
+        h`<label class="block mb-3"><span class="block text-xs font-bold mb-1 mut">${l}</span>${children}${e && h`<span class="block text-xs text-red-500 mt-1">${e}</span>`}</label>`;
+      const Empty = ({ icon, title, text, act, fn }) =>
+        h`<div class="text-center py-12 px-4"><div class="mx-auto w-14 h-14 rounded-2xl flex items-center justify-center mb-3" style=${{ background: "var(--soft)", color: "var(--navy)" }}><${I} n=${icon} s=${26}/></div><div class="font-bold">${title}</div><div class="text-sm mut mt-1 mb-4">${text}</div>${act && h`<button class="btn pri" onClick=${fn}>${act}</button>`}</div>`;
+      const Modal = ({ title, close, children }) =>
+        h`<div class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3" style=${{ background: "rgba(8,15,35,.55)" }} onClick=${close}><div class="card pop w-full max-w-md p-5 max-h-[92vh] overflow-y-auto" onClick=${(e) => e.stopPropagation()}><div class="flex items-center justify-between mb-4"><h3 class="font-extrabold text-lg">${title}</h3><button class="btn !p-1.5" onClick=${close}><${I} n="x" s=${16}/></button></div>${children}</div></div>`;
+      const Donut = ({ parts, label }) => {
+        const tot = parts.reduce((a, p) => a + p.v, 0) || 1;
+        let o = 0;
+        const r = 54,
+          C = 2 * Math.PI * r;
+        return h`<svg width="150" height="150" viewBox="0 0 140 140"><circle cx="70" cy="70" r=${r} fill="none" stroke="var(--bd)" stroke-width="14"/>${parts.map(
+          (p) => {
+            const l = (p.v / tot) * C,
+              el = h`<circle cx="70" cy="70" r=${r} fill="none" stroke=${p.c} stroke-width="14" stroke-dasharray=${l + " " + (C - l)} stroke-dashoffset=${-o} transform="rotate(-90 70 70)"/>`;
+            o += l;
+            return el;
+          },
+        )}<text x="70" y="77" text-anchor="middle" font-size="22" font-weight="800" fill="var(--tx)">${label}</text></svg>`;
+      };
+      const Bars = ({ data, color = "var(--navy)", hg = 130 }) => {
+        const mx = Math.max(1, ...data.map((d) => d.v));
+        return h`<div class="flex items-end gap-2 sm:gap-3" style=${{ height: hg + 40 }}>${data.map((d) => h`<div class="flex-1 flex flex-col items-center justify-end h-full gap-1"><span class="text-[11px] font-bold">${d.v}</span><div class="w-full rounded-t-lg transition-all" style=${{ height: Math.max(4, (d.v / mx) * hg) + "px", background: color, opacity: d.v ? 1 : 0.25 }}></div><span class="text-[11px] mut">${d.l}</span></div>`)}</div>`;
+      };
+      const Sel = ({ v, on, opts }) =>
+        h`<select class="inp" value=${v} onChange=${(e) => on(e.target.value)}>${opts.map((o) => h`<option value=${o[0]}>${o[1]}</option>`)}</select>`;
+      const Tog = ({ on, fn, l, d }) =>
+        h`<div class="flex items-center justify-between py-3"><div><div class="font-semibold text-sm">${l}</div><div class="text-xs mut">${d}</div></div><button onClick=${fn} class="w-11 h-6 rounded-full relative transition" style=${{ background: on ? "var(--navy)" : "var(--bd)" }}><span class="absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all" style=${{ left: on ? 22 : 2 }}></span></button></div>`;
+
+      const Row = ({ t, c }) => {
+        const s = c.sub(t.sub),
+          od = t.st !== "done" && t.due < T;
+        return h`<div class="flex items-center gap-3 py-3 border-b last:border-0" style=${{ borderColor: "var(--bd)" }}>
+<button title="Mark complete" onClick=${() => c.toggle(t.id)} class="w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition" style=${{ borderColor: t.st === "done" ? "#10b981" : "var(--mut)", background: t.st === "done" ? "#10b981" : "transparent", color: "#fff" }}>${t.st === "done" && h`<${I} n="check" s=${14}/>`}</button>
+<div class="min-w-0 flex-1"><div class=${"font-semibold text-sm truncate " + (t.st === "done" ? "line-through mut" : "")}>${t.title}</div>
+<div class="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1 text-xs"><${Tag} color=${s.color}>${s.name}<//><span class="mut">${fmt(t.due)}</span>${od && h`<span class="font-bold text-red-500">Overdue</span>`}<span class="font-semibold" style=${{ color: PRI[t.pr] }}>● ${t.pr}</span><span class="mut">${ST[t.st]}</span></div></div>
+<button title="Edit" class="btn !p-2" onClick=${() => c.setModal({ type: "task", d: t })}><${I} n="edit" s=${15}/></button>
+<button title="Delete" class="btn !p-2" onClick=${() =>
+          c.ask("Delete “" + t.title + "”?", () => {
+            c.set("tasks", (a) => a.filter((x) => x.id !== t.id));
+            c.say("Task deleted");
+          })}><${I} n="trash" s=${15}/></button></div>`;
+      };
+
+      function TaskForm({ c, d, close }) {
+        const [f, setF] = useState(d);
+        const [e, setE] = useState({});
+        const u = (a, b) => setF({ ...f, [a]: b });
+        const sv = () => {
+          const er = {};
+          if (!f.title.trim()) er.title = "Title is required";
+          if (!f.due) er.due = "Pick a deadline";
+          if (!f.sub) er.sub = "Add a subject first in the Subjects page";
+          setE(er);
+          if (Object.keys(er).length) return;
+          const t = {
+            ...f,
+            title: f.title.trim(),
+            doneAt: f.st === "done" ? f.doneAt || T : null,
+          };
+          c.set("tasks", (a) =>
+            f.id
+              ? a.map((x) => (x.id === f.id ? t : x))
+              : [{ ...t, id: uid() }, ...a],
+          );
+          c.say(f.id ? "Task updated" : "Task created");
+          close();
+        };
+        return h`<${Modal} title=${f.id ? "Edit task" : "New task"} close=${close}>
+<${F} l="Title" e=${e.title}><input class="inp" autofocus value=${f.title} onInput=${(x) => u("title", x.target.value)} placeholder="e.g. Finish C++ loops lab"/><//>
+<${F} l="Description"><textarea class="inp" rows="2" value=${f.desc} onInput=${(x) => u("desc", x.target.value)}></textarea><//>
+<div class="grid grid-cols-2 gap-3"><${F} l="Subject" e=${e.sub}><${Sel} v=${f.sub} on=${(v) => u("sub", v)} opts=${c.db.subjects.map((s) => [s.id, s.name])}/><//>
+<${F} l="Deadline" e=${e.due}><input type="date" class="inp" value=${f.due} onInput=${(x) => u("due", x.target.value)}/><//>
+<${F} l="Priority"><${Sel} v=${f.pr} on=${(v) => u("pr", v)} opts=${["High", "Medium", "Low"].map((x) => [x, x])}/><//>
+<${F} l="Status"><${Sel} v=${f.st} on=${(v) => u("st", v)} opts=${Object.entries(ST)}/><//></div>
+<button class="btn pri w-full mt-2" onClick=${sv}>${f.id ? "Save changes" : "Create task"}</button><//>`;
+      }
+
+      function SubForm({ c, d, close }) {
+        const [f, setF] = useState(d);
+        const [e, setE] = useState("");
+        const sv = () => {
+          const n = f.name.trim();
+          if (!n) return setE("Name is required");
+          if (
+            c.db.subjects.some(
+              (s) => s.id !== f.id && s.name.toLowerCase() === n.toLowerCase(),
+            )
+          )
+            return setE("This subject already exists");
+          c.set("subjects", (a) =>
+            f.id
+              ? a.map((x) => (x.id === f.id ? { ...f, name: n } : x))
+              : [...a, { ...f, name: n, id: uid() }],
+          );
+          c.say(f.id ? "Subject updated" : "Subject added");
+          close();
+        };
+        return h`<${Modal} title=${f.id ? "Edit subject" : "New subject"} close=${close}>
+<${F} l="Name" e=${e}><input class="inp" autofocus value=${f.name} onInput=${(x) => setF({ ...f, name: x.target.value })}/><//>
+<div class="text-xs font-bold mut mb-2">Color</div><div class="flex gap-2 flex-wrap mb-4">${COLORS.map((x) => h`<button onClick=${() => setF({ ...f, color: x })} class="w-8 h-8 rounded-full transition" style=${{ background: x, outline: f.color === x ? "3px solid var(--tx)" : "none", outlineOffset: 2 }}></button>`)}</div>
+<button class="btn pri w-full" onClick=${sv}>${f.id ? "Save changes" : "Add subject"}</button><//>`;
+      }
+
+      function NoteForm({ c, d, close }) {
+        const [f, setF] = useState(d);
+        const [e, setE] = useState({});
+        const u = (a, b) => setF({ ...f, [a]: b });
+        const sv = () => {
+          const er = {};
+          if (!f.title.trim()) er.title = "Title is required";
+          if (!f.body.trim()) er.body = "Write something first";
+          setE(er);
+          if (Object.keys(er).length) return;
+          c.set("notes", (a) =>
+            f.id
+              ? a.map((x) =>
+                  x.id === f.id ? { ...f, title: f.title.trim(), at: T } : x,
+                )
+              : [{ ...f, title: f.title.trim(), id: uid(), at: T }, ...a],
+          );
+          c.say(f.id ? "Note updated" : "Note saved");
+          close();
+        };
+        return h`<${Modal} title=${f.id ? "Edit note" : "New note"} close=${close}>
+<${F} l="Title" e=${e.title}><input class="inp" autofocus value=${f.title} onInput=${(x) => u("title", x.target.value)}/><//>
+<${F} l="Subject"><${Sel} v=${f.sub} on=${(v) => u("sub", v)} opts=${[["", "General"], ...c.db.subjects.map((s) => [s.id, s.name])]}/><//>
+<${F} l="Note" e=${e.body}><textarea class="inp" rows="6" value=${f.body} onInput=${(x) => u("body", x.target.value)}></textarea><//>
+<button class="btn pri w-full" onClick=${sv}>${f.id ? "Save changes" : "Save note"}</button><//>`;
+      }
+
+      function Dash({ c }) {
+        const { tasks } = c.db,
+          dn = tasks.filter((t) => t.st === "done").length,
+          od = tasks.filter((t) => t.st !== "done" && t.due < T).length,
+          pe = tasks.length - dn;
+        const hr = new Date().getHours(),
+          g =
+            hr < 12
+              ? "Good morning"
+              : hr < 18
+                ? "Good afternoon"
+                : "Good evening";
+        const today = tasks.filter((t) => t.due === T),
+          up = tasks
+            .filter((t) => t.st !== "done" && t.due > T)
+            .sort((a, b) => a.due.localeCompare(b.due))
+            .slice(0, 5);
+        const wd = wk.map((d) => ({
+          l: d.l,
+          v: tasks.filter((t) => t.doneAt === d.key).length,
+        }));
+        const pct = tasks.length ? Math.round((dn / tasks.length) * 100) : 0;
+        const due = today.filter((t) => t.st !== "done").length;
+        return h`<div>
+<div class="mb-5"><h2 class="text-2xl font-extrabold">${g}, ${c.db.user.name} 👋</h2><p class="mut text-sm">${due ? "You have " + due + " task" + (due > 1 ? "s" : "") + " due today." : "Nothing due today. Nice and steady."}</p></div>
+${c.db.set.alerts && od > 0 && h`<div class="card p-3 mb-4 flex items-center gap-3 text-sm font-semibold" style=${{ borderColor: "#ef4444" }}><span class="text-red-500"><${I} n="bell"/></span>${od} overdue task${od > 1 ? "s need" : " needs"} your attention.<button class="btn ml-auto" onClick=${() => c.go("tasks")}>Review</button></div>`}
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">${[
+          ["Total tasks", tasks.length, "tasks", "#3b82f6"],
+          ["Completed", dn, "check", "#10b981"],
+          ["Pending", pe, "timer", "#f59e0b"],
+          ["Overdue", od, "flame", "#ef4444"],
+        ].map(
+          (x) =>
+            h`<div class="card hov p-4"><div class="w-9 h-9 rounded-xl flex items-center justify-center mb-3" style=${{ background: x[3] + "22", color: x[3] }}><${I} n=${x[2]}/></div><div class="text-2xl font-extrabold">${x[1]}</div><div class="text-xs mut font-semibold">${x[0]}</div></div>`,
+        )}</div>
+<div class="grid lg:grid-cols-3 gap-4 mb-4">
+<div class="card p-5 lg:col-span-2"><div class="font-bold mb-3">Weekly productivity</div><${Bars} data=${wd}/></div>
+<div class="card p-5 flex flex-col items-center"><div class="font-bold mb-2 self-start">Completion progress</div><${Donut} parts=${[
+          { v: dn, c: "#10b981" },
+          { v: pe, c: "var(--bd)" },
+        ]} label=${pct + "%"}/><div class="text-xs mut mt-2">${dn} of ${tasks.length} tasks completed</div></div></div>
+<div class="grid lg:grid-cols-2 gap-4">
+<div class="card p-5"><div class="flex justify-between items-center mb-1"><div class="font-bold">Today’s schedule</div><button class="btn !py-1.5" onClick=${() => c.setModal({ type: "task", d: c.blank(T) })}><${I} n="plus" s=${14}/>Add</button></div>${today.length ? today.map((t) => h`<${Row} t=${t} c=${c}/>`) : h`<${Empty} icon="cal" title="A clear day" text="No tasks are due today."/>`}</div>
+<div class="card p-5"><div class="font-bold mb-1">Upcoming deadlines</div>${up.length ? up.map((t) => h`<${Row} t=${t} c=${c}/>`) : h`<${Empty} icon="check" title="You’re all caught up" text="No upcoming deadlines."/>`}</div></div></div>`;
+      }
+
+      function Tasks({ c }) {
+        const { flt, setFlt, db } = c,
+          u = (a, b) => setFlt({ ...flt, [a]: b });
+        const list = db.tasks
+          .filter(
+            (t) =>
+              (flt.st === "all" || t.st === flt.st) &&
+              (flt.pr === "all" || t.pr === flt.pr) &&
+              (flt.sub === "all" || t.sub === flt.sub) &&
+              (t.title + t.desc).toLowerCase().includes(flt.q.toLowerCase()),
+          )
+          .sort(
+            (a, b) =>
+              (a.st === "done") - (b.st === "done") ||
+              a.due.localeCompare(b.due),
+          );
+        return h`<div><div class="card p-4 mb-4 grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+<div class="relative"><span class="absolute left-3 top-2.5 mut"><${I} n="search" s=${16}/></span><input class="inp !pl-9" placeholder="Search tasks" value=${flt.q} onInput=${(e) => u("q", e.target.value)}/></div>
+<${Sel} v=${flt.st} on=${(v) => u("st", v)} opts=${[["all", "All statuses"], ...Object.entries(ST)]}/>
+<${Sel} v=${flt.pr} on=${(v) => u("pr", v)} opts=${[
+          ["all", "All priorities"],
+          ["High", "High"],
+          ["Medium", "Medium"],
+          ["Low", "Low"],
+        ]}/>
+<${Sel} v=${flt.sub} on=${(v) => u("sub", v)} opts=${[["all", "All subjects"], ...db.subjects.map((s) => [s.id, s.name])]}/></div>
+<div class="card px-5 py-2">${list.length ? list.map((t) => h`<${Row} t=${t} c=${c}/>`) : h`<${Empty} icon="tasks" title="No tasks found" text="Try different filters or create a new task." act="New task" fn=${() => c.setModal({ type: "task", d: c.blank() })}/>`}</div></div>`;
+      }
+
+      function Cal({ c }) {
+        const [v, setV] = useState("month");
+        const [cur, setCur] = useState(new Date());
+        const first =
+            v === "month"
+              ? new Date(cur.getFullYear(), cur.getMonth(), 1)
+              : new Date(cur),
+          start = ad(first, -first.getDay());
+        const days = Array.from({ length: v === "month" ? 42 : 7 }, (_, i) =>
+          ad(start, i),
+        );
+        const mv = (d) =>
+          setCur(
+            v === "month"
+              ? new Date(cur.getFullYear(), cur.getMonth() + d, 1)
+              : ad(cur, d * 7),
+          );
+        const title =
+          v === "month"
+            ? cur.toLocaleDateString("en-US", {
+                month: "long",
+                year: "numeric",
+              })
+            : fmt(k(days[0])) + " – " + fmt(k(days[6]));
+        return h`<div><div class="flex flex-wrap items-center gap-2 mb-4"><h3 class="font-extrabold text-lg mr-auto">${title}</h3>
+<button class="btn !p-2" onClick=${() => mv(-1)}><${I} n="left" s=${16}/></button><button class="btn" onClick=${() => setCur(new Date())}>Today</button><button class="btn !p-2" onClick=${() => mv(1)}><${I} n="right" s=${16}/></button>
+${["month", "week"].map((x) => h`<button class=${"btn " + (v === x ? "pri" : "")} onClick=${() => setV(x)}>${x === "month" ? "Month" : "Week"}</button>`)}</div>
+<div class="card overflow-x-auto"><div style=${{ minWidth: 640 }}><div class="grid grid-cols-7 text-center text-xs font-bold mut py-2 border-b" style=${{ borderColor: "var(--bd)" }}>${["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((x) => h`<div>${x}</div>`)}</div>
+<div class="grid grid-cols-7">${days.map((d) => {
+          const key = k(d),
+            ts = c.db.tasks.filter((t) => t.due === key),
+            soon =
+              ts.some((t) => t.st !== "done") &&
+              key >= T &&
+              key <= k(ad(new Date(), 3)),
+            lim = v === "month" ? 2 : 10;
+          return h`<div onClick=${() => c.setModal({ type: "task", d: c.blank(key) })} class="cursor-pointer p-1.5 border-b border-r transition hover:brightness-95" style=${{ borderColor: "var(--bd)", minHeight: v === "month" ? 96 : 280, background: soon ? "var(--soft)" : "transparent", opacity: v === "month" && d.getMonth() !== cur.getMonth() ? 0.45 : 1 }}>
+<span class="text-xs font-bold inline-flex w-6 h-6 items-center justify-center rounded-full" style=${key === T ? { background: "var(--navy)", color: "#fff" } : {}}>${d.getDate()}</span>
+${ts.slice(0, lim).map((t) => {
+  const s = c.sub(t.sub);
+  return h`<div onClick=${(e) => {
+    e.stopPropagation();
+    c.setModal({ type: "task", d: t });
+  }} class="truncate text-[11px] font-semibold rounded-md px-1.5 py-0.5 mt-1" style=${{ background: s.color + "26", color: s.color, borderLeft: "3px solid " + s.color, textDecoration: t.st === "done" ? "line-through" : "none" }}>${t.title}</div>`;
+})}
+${ts.length > lim && h`<div class="text-[11px] mut mt-1">+${ts.length - lim} more</div>`}</div>`;
+        })}</div></div></div>
+<p class="text-xs mut mt-3">Click any date to add a task. Highlighted days have deadlines in the next three days.</p></div>`;
+      }
+
+      function Subs({ c }) {
+        const { subjects, tasks } = c.db;
+        return h`<div><div class="flex justify-end mb-4"><button class="btn pri" onClick=${() => c.setModal({ type: "sub", d: { name: "", color: COLORS[0] } })}><${I} n="plus" s=${16}/>New subject</button></div>
+${
+  subjects.length
+    ? h`<div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">${subjects.map(
+        (s) => {
+          const ts = tasks.filter((t) => t.sub === s.id),
+            dn = ts.filter((t) => t.st === "done").length;
+          return h`<div class="card hov p-5"><div class="flex items-center gap-3 mb-4"><div class="w-10 h-10 rounded-xl" style=${{ background: s.color }}></div><div class="min-w-0 flex-1"><div class="font-bold truncate">${s.name}</div><div class="text-xs mut">${ts.length} task${ts.length === 1 ? "" : "s"} · ${dn} done</div></div></div>
+<div class="h-2 rounded-full mb-4" style=${{ background: "var(--bd)" }}><div class="h-2 rounded-full transition-all" style=${{ width: (ts.length ? (dn / ts.length) * 100 : 0) + "%", background: s.color }}></div></div>
+<div class="flex gap-2"><button class="btn flex-1" onClick=${() => {
+            c.setFlt({ q: "", st: "all", pr: "all", sub: s.id });
+            c.go("tasks");
+          }}>View tasks</button><button class="btn !p-2" onClick=${() => c.setModal({ type: "sub", d: s })}><${I} n="edit" s=${15}/></button><button class="btn !p-2" onClick=${() =>
+            c.ask(
+              "Delete “" +
+                s.name +
+                "” and its " +
+                ts.length +
+                " task(s) and notes link?",
+              () => {
+                c.set("subjects", (a) => a.filter((x) => x.id !== s.id));
+                c.set("tasks", (a) => a.filter((x) => x.sub !== s.id));
+                c.set("notes", (a) =>
+                  a.map((n) => (n.sub === s.id ? { ...n, sub: "" } : n)),
+                );
+                c.say("Subject deleted");
+              },
+            )}><${I} n="trash" s=${15}/></button></div></div>`;
+        },
+      )}</div>`
+    : h`<div class="card"><${Empty} icon="book" title="No subjects yet" text="Add your first course to organize tasks." act="Add subject" fn=${() => c.setModal({ type: "sub", d: { name: "", color: COLORS[0] } })}/></div>`
+}</div>`;
+      }
+
+      const M = {
+        focus: ["Focus", 25],
+        short: ["Short break", 5],
+        long: ["Long break", 15],
+      };
+      function Timer({ c }) {
+        const [m, setM] = useState("focus");
+        const [left, setLeft] = useState(1500);
+        const [run, setRun] = useState(false);
+        const end = useRef(0);
+        const cnt = c.db.sessions[T] || 0,
+          total = Object.values(c.db.sessions).reduce((a, b) => a + b, 0);
+        const pick = (x) => {
+          setM(x);
+          setLeft(M[x][1] * 60);
+          setRun(false);
+        };
+        useEffect(() => {
+          if (!run) return;
+          const id = setInterval(() => {
+            const r = Math.max(
+              0,
+              Math.round((end.current - Date.now()) / 1000),
+            );
+            setLeft(r);
+            if (r === 0) {
+              if (c.db.set.sound) beep();
+              if (m === "focus") {
+                c.set("sessions", (s) => ({ ...s, [T]: (s[T] || 0) + 1 }));
+                c.say("Focus session complete. Time for a break!");
+                pick((cnt + 1) % 4 === 0 ? "long" : "short");
+              } else {
+                c.say("Break over. Ready to focus?");
+                pick("focus");
+              }
+            }
+          }, 250);
+          return () => clearInterval(id);
+        }, [run, m]);
+        const go = () => {
+          if (!run) end.current = Date.now() + left * 1000;
+          setRun(!run);
+        };
+        const tot = M[m][1] * 60,
+          C = 2 * Math.PI * 110,
+          mm = String(Math.floor(left / 60)).padStart(2, "0"),
+          ss = String(left % 60).padStart(2, "0");
+        return h`<div class="grid lg:grid-cols-3 gap-4"><div class="card p-6 lg:col-span-2 flex flex-col items-center">
+<div class="flex gap-2 mb-6 flex-wrap justify-center">${Object.entries(M).map(([x, v]) => h`<button class=${"btn " + (m === x ? "pri" : "")} onClick=${() => pick(x)}>${v[0]} · ${v[1]}m</button>`)}</div>
+<div class="relative" style=${{ width: 260, height: 260 }}><svg width="260" height="260" viewBox="0 0 260 260"><circle cx="130" cy="130" r="110" fill="none" stroke="var(--bd)" stroke-width="12"/><circle cx="130" cy="130" r="110" fill="none" stroke=${m === "focus" ? "#3b82f6" : "#10b981"} stroke-width="12" stroke-linecap="round" stroke-dasharray=${C} stroke-dashoffset=${C * (1 - left / tot)} transform="rotate(-90 130 130)" style=${{ transition: "stroke-dashoffset .3s" }}/></svg>
+<div class="absolute inset-0 flex flex-col items-center justify-center"><div class="text-5xl font-extrabold tabular-nums">${mm}:${ss}</div><div class="text-sm mut font-semibold mt-1">${M[m][0]}</div></div></div>
+<div class="flex gap-3 mt-6"><button class="btn pri !px-6" onClick=${go}><${I} n=${run ? "pause" : "play"} s=${16}/>${run ? "Pause" : left < tot ? "Resume" : "Start"}</button><button class="btn" onClick=${() => pick(m)}><${I} n="reset" s=${16}/>Reset</button></div></div>
+<div class="card p-5"><div class="font-bold mb-4">Focus sessions</div><div class="text-4xl font-extrabold">${cnt}</div><div class="text-sm mut mb-4">completed today</div><div class="text-sm mut mb-1">All time: <b style=${{ color: "var(--tx)" }}>${total}</b> sessions (${Math.round((total * 25) / 6) / 10} hours)</div>
+<div class="flex gap-1.5 mt-4">${Array.from({ length: 4 }, (_, i) => h`<div class="h-2 flex-1 rounded-full" style=${{ background: i < cnt % 4 || (cnt > 0 && cnt % 4 === 0) ? "#3b82f6" : "var(--bd)" }}></div>`)}</div><div class="text-xs mut mt-2">A long break comes after every 4 focus sessions.</div></div></div>`;
+      }
+
+      function Notes({ c }) {
+        const [q, setQ] = useState(""),
+          [sb, setSb] = useState("all");
+        const list = c.db.notes.filter(
+          (n) =>
+            (sb === "all" || n.sub === sb) &&
+            (n.title + n.body).toLowerCase().includes(q.toLowerCase()),
+        );
+        const nw = { title: "", body: "", sub: "" };
+        return h`<div><div class="flex flex-wrap gap-3 mb-4"><div class="relative flex-1" style=${{ minWidth: 200 }}><span class="absolute left-3 top-2.5 mut"><${I} n="search" s=${16}/></span><input class="inp !pl-9" placeholder="Search notes" value=${q} onInput=${(e) => setQ(e.target.value)}/></div>
+<div style=${{ minWidth: 170 }}><${Sel} v=${sb} on=${setSb} opts=${[["all", "All subjects"], ...c.db.subjects.map((s) => [s.id, s.name])]}/></div><button class="btn pri" onClick=${() => c.setModal({ type: "note", d: nw })}><${I} n="plus" s=${16}/>New note</button></div>
+${
+  list.length
+    ? h`<div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">${list.map(
+        (n) => {
+          const s = c.sub(n.sub);
+          return h`<div class="card hov p-5 flex flex-col"><div class="flex justify-between items-start gap-2 mb-2"><div class="font-bold">${n.title}</div><${Tag} color=${n.sub ? s.color : "#64748b"}>${n.sub ? s.name : "General"}<//></div><p class="text-sm mut flex-1 whitespace-pre-wrap" style=${{ display: "-webkit-box", WebkitLineClamp: 5, WebkitBoxOrient: "vertical", overflow: "hidden" }}>${n.body}</p>
+<div class="flex items-center justify-between mt-4"><span class="text-xs mut">${fmt(n.at)}</span><div class="flex gap-2"><button class="btn !p-2" onClick=${() => c.setModal({ type: "note", d: n })}><${I} n="edit" s=${14}/></button><button class="btn !p-2" onClick=${() =>
+            c.ask("Delete “" + n.title + "”?", () => {
+              c.set("notes", (a) => a.filter((x) => x.id !== n.id));
+              c.say("Note deleted");
+            })}><${I} n="trash" s=${14}/></button></div></div></div>`;
+        },
+      )}</div>`
+    : h`<div class="card"><${Empty} icon="note" title="No notes found" text="Capture ideas, formulas and summaries per subject." act="Write a note" fn=${() => c.setModal({ type: "note", d: nw })}/></div>`
+}</div>`;
+      }
+
+      function Ana({ c }) {
+        const { tasks, subjects, sessions } = c.db,
+          dn = tasks.filter((t) => t.st === "done").length,
+          pr = tasks.filter((t) => t.st === "progress").length,
+          od = tasks.filter((t) => t.st !== "done" && t.due < T).length,
+          pe = tasks.length - dn,
+          pct = tasks.length ? Math.round((dn / tasks.length) * 100) : 0;
+        return h`<div class="grid lg:grid-cols-3 gap-4">
+<div class="card p-5 lg:col-span-2"><div class="font-bold mb-3">Tasks completed this week</div><${Bars} data=${wk.map((d) => ({ l: d.l, v: tasks.filter((t) => t.doneAt === d.key).length }))}/></div>
+<div class="card p-5 flex flex-col items-center"><div class="font-bold mb-2 self-start">Productivity</div><${Donut} parts=${[
+          { v: dn, c: "#10b981" },
+          { v: pe, c: "var(--bd)" },
+        ]} label=${pct + "%"}/><div class="text-xs mut mt-2">of all tasks completed</div></div>
+<div class="card p-5"><div class="font-bold mb-3">Completed vs pending</div><div class="flex items-center gap-4"><${Donut} parts=${[
+          { v: dn, c: "#10b981" },
+          { v: pr, c: "#3b82f6" },
+          { v: pe - pr - od, c: "#f59e0b" },
+          { v: od, c: "#ef4444" },
+        ]} label=${tasks.length}/><div class="text-sm space-y-1.5">${[
+          ["Completed", dn, "#10b981"],
+          ["In progress", pr, "#3b82f6"],
+          ["To do", pe - pr - od, "#f59e0b"],
+          ["Overdue", od, "#ef4444"],
+        ].map(
+          (x) =>
+            h`<div class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full" style=${{ background: x[2] }}></span>${x[0]} <b>${x[1]}</b></div>`,
+        )}</div></div></div>
+<div class="card p-5 lg:col-span-2"><div class="font-bold mb-3">Tasks by subject</div>${
+          subjects.length
+            ? subjects.map((s) => {
+                const ts = tasks.filter((t) => t.sub === s.id),
+                  d = ts.filter((t) => t.st === "done").length;
+                return h`<div class="mb-3"><div class="flex justify-between text-sm mb-1"><span class="font-semibold">${s.name}</span><span class="mut">${d}/${ts.length}</span></div><div class="h-2.5 rounded-full" style=${{ background: "var(--bd)" }}><div class="h-2.5 rounded-full transition-all" style=${{ width: (ts.length ? (d / ts.length) * 100 : 0) + "%", background: s.color }}></div></div></div>`;
+              })
+            : h`<${Empty} icon="book" title="No subjects" text="Add subjects to see statistics."/>`
+        }</div>
+<div class="card p-5 lg:col-span-3"><div class="font-bold mb-3">Focus sessions this week</div><${Bars} color="#3b82f6" hg=${90} data=${wk.map((d) => ({ l: d.l, v: sessions[d.key] || 0 }))}/></div></div>`;
+      }
+
+      function Sets({ c }) {
+        const [n, setN] = useState(c.db.user.name),
+          [co, setCo] = useState(c.db.user.course),
+          [e, setE] = useState("");
+        const s = c.db.set,
+          tg = (x) => c.set("set", (a) => ({ ...a, [x]: !a[x] }));
+        const sv = () => {
+          if (!n.trim()) return setE("Name is required");
+          setE("");
+          c.set("user", { name: n.trim(), course: co.trim() });
+          c.say("Profile saved");
+        };
+        return h`<div class="grid lg:grid-cols-2 gap-4"><div class="card p-5"><div class="font-bold mb-4">Profile</div><${F} l="Display name" e=${e}><input class="inp" value=${n} onInput=${(x) => setN(x.target.value)}/><//><${F} l="Course / grade"><input class="inp" value=${co} onInput=${(x) => setCo(x.target.value)}/><//><button class="btn pri" onClick=${sv}>Save profile</button></div>
+<div class="grid gap-4 content-start"><div class="card p-5"><div class="font-bold mb-3">Appearance</div><div class="flex gap-2">${[
+          ["light", "sun", "Light"],
+          ["dark", "moon", "Dark"],
+        ].map(
+          (x) =>
+            h`<button class=${"btn flex-1 " + (s.theme === x[0] ? "pri" : "")} onClick=${() => c.set("set", (a) => ({ ...a, theme: x[0] }))}><${I} n=${x[1]} s=${16}/>${x[2]}</button>`,
+        )}</div></div>
+<div class="card p-5"><div class="font-bold mb-1">Notifications</div><${Tog} on=${s.daily} fn=${() => tg("daily")} l="Daily digest" d="Show a reminder of today’s tasks when you open StudyFlow"/><${Tog} on=${s.alerts} fn=${() => tg("alerts")} l="Overdue alerts" d="Show a banner on the dashboard for overdue tasks"/><${Tog} on=${s.sound} fn=${() => tg("sound")} l="Timer sound" d="Play a chime when a Pomodoro session ends"/></div>
+<div class="card p-5"><div class="font-bold mb-2">Data</div><p class="text-sm mut mb-3">Everything is stored in this browser. Resetting restores the demo data.</p><button class="btn" onClick=${() =>
+          c.ask("Reset all data to the demo set?", () => {
+            c.setDb(seed());
+            c.say("Demo data restored");
+          })}>Reset demo data</button></div></div></div>`;
+      }
+
+      const NAV = [
+        ["dashboard", "Dashboard", "dash"],
+        ["tasks", "My Tasks", "tasks"],
+        ["calendar", "Calendar", "cal"],
+        ["subjects", "Subjects", "book"],
+        ["timer", "Study Timer", "timer"],
+        ["notes", "Notes", "note"],
+        ["analytics", "Analytics", "chart"],
+        ["settings", "Settings", "gear"],
+      ];
+      const PG = {
+        dashboard: Dash,
+        tasks: Tasks,
+        calendar: Cal,
+        subjects: Subs,
+        notes: Notes,
+        analytics: Ana,
+        settings: Sets,
+      };
+
+      function App() {
+        const [db, setDb] = useLS("studyflow-v1", seed);
+        const [pg, setPg] = useState("dashboard");
+        const [open, setOpen] = useState(false);
+        const [modal, setModal] = useState(null);
+        const [toast, setToast] = useState(null);
+        const [flt, setFlt] = useState({
+          q: "",
+          st: "all",
+          pr: "all",
+          sub: "all",
+        });
+        const tm = useRef();
+        const say = (m) => {
+          setToast(m);
+          clearTimeout(tm.current);
+          tm.current = setTimeout(() => setToast(null), 2800);
+        };
+        const set = (key, fn) =>
+          setDb((d) => ({
+            ...d,
+            [key]: typeof fn === "function" ? fn(d[key]) : fn,
+          }));
+        useEffect(() => {
+          document.documentElement.dataset.theme = db.set.theme;
+        }, [db.set.theme]);
+        useEffect(() => {
+          if (db.set.daily) {
+            const n = db.tasks.filter(
+              (t) => t.due === T && t.st !== "done",
+            ).length;
+            if (n)
+              say(
+                "Daily digest: " +
+                  n +
+                  " task" +
+                  (n > 1 ? "s" : "") +
+                  " due today",
+              );
+          }
+        }, []);
+        const c = {
+          db,
+          set,
+          setDb,
+          say,
+          setModal,
+          flt,
+          setFlt,
+          sub: (id) =>
+            db.subjects.find((s) => s.id === id) || {
+              name: "No subject",
+              color: "#94a3b8",
+            },
+          go: (p) => {
+            setPg(p);
+            setOpen(false);
+            window.scrollTo(0, 0);
+          },
+          ask: (msg, fn) => setModal({ type: "confirm", msg, fn }),
+          blank: (due) => ({
+            title: "",
+            desc: "",
+            sub: db.subjects[0] ? db.subjects[0].id : "",
+            due: due || "",
+            pr: "Medium",
+            st: "todo",
+            doneAt: null,
+          }),
+          toggle: (id) => {
+            const t = db.tasks.find((x) => x.id === id);
+            set("tasks", (a) =>
+              a.map((x) =>
+                x.id === id
+                  ? {
+                      ...x,
+                      st: x.st === "done" ? "todo" : "done",
+                      doneAt: x.st === "done" ? null : T,
+                    }
+                  : x,
+              ),
+            );
+            say(
+              t.st === "done" ? "Task reopened" : "Nice work! Task completed",
+            );
+          },
+        };
+        const close = () => setModal(null),
+          Page = PG[pg],
+          cur = NAV.find((x) => x[0] === pg),
+          ini = db.user.name.trim().slice(0, 2).toUpperCase();
+        return h`<div class="min-h-full lg:pl-64">
+${open && h`<div class="fixed inset-0 z-30 lg:hidden" style=${{ background: "rgba(8,15,35,.5)" }} onClick=${() => setOpen(false)}></div>`}
+<aside class=${"fixed inset-y-0 left-0 w-64 z-40 flex flex-col p-4 transition-transform duration-200 lg:translate-x-0 " + (open ? "translate-x-0" : "-translate-x-full")} style=${{ background: "var(--card)", borderRight: "1px solid var(--bd)" }}>
+<div class="flex items-center gap-2.5 px-2 py-3 mb-4"><div class="w-9 h-9 rounded-xl flex items-center justify-center text-white" style=${{ background: "linear-gradient(135deg,#14264f,#3b82f6)" }}><${I} n="tasks" s=${20}/></div><div class="font-extrabold text-lg tracking-tight">StudyFlow</div></div>
+<nav class="flex-1 space-y-1">${NAV.map((x) => h`<button class=${"nav " + (pg === x[0] ? "on" : "")} onClick=${() => c.go(x[0])}><${I} n=${x[2]}/>${x[1]}</button>`)}</nav>
+<div class="card p-3 flex items-center gap-3 cursor-pointer" onClick=${() => c.go("settings")}><div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm" style=${{ background: "linear-gradient(135deg,#3b82f6,#14264f)" }}>${ini}</div><div class="min-w-0"><div class="font-bold text-sm truncate">${db.user.name}</div><div class="text-xs mut truncate">${db.user.course || "Student"}</div></div></div></aside>
+<main class="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto"><header class="flex items-center gap-3 mb-6"><button class="btn !p-2 lg:hidden" onClick=${() => setOpen(true)}><${I} n="menu"/></button>
+<div class="mr-auto"><h1 class="text-xl font-extrabold">${cur[1]}</h1><div class="text-xs mut">${new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}</div></div>
+<button class="btn !p-2" title="Toggle theme" onClick=${() => set("set", (a) => ({ ...a, theme: a.theme === "dark" ? "light" : "dark" }))}><${I} n=${db.set.theme === "dark" ? "sun" : "moon"}/></button>
+<button class="btn pri" onClick=${() => setModal({ type: "task", d: c.blank() })}><${I} n="plus" s=${16}/><span class="hidden sm:inline">New task</span></button></header>
+${Page && h`<${Page} c=${c}/>`}
+<div class=${pg === "timer" ? "" : "hidden"}><${Timer} c=${c}/></div></main>
+${modal && modal.type === "task" && h`<${TaskForm} c=${c} d=${modal.d} close=${close}/>`}
+${modal && modal.type === "sub" && h`<${SubForm} c=${c} d=${modal.d} close=${close}/>`}
+${modal && modal.type === "note" && h`<${NoteForm} c=${c} d=${modal.d} close=${close}/>`}
+${
+  modal &&
+  modal.type === "confirm" &&
+  h`<${Modal} title="Please confirm" close=${close}><p class="text-sm mut mb-4">${modal.msg}</p><div class="flex gap-2"><button class="btn flex-1" onClick=${close}>Cancel</button><button class="btn flex-1" style=${{ background: "#ef4444", color: "#fff", borderColor: "#ef4444" }} onClick=${() => {
+    modal.fn();
+    close();
+  }}>Confirm</button></div><//>`
+}
+${toast && h`<div class="pop fixed left-1/2 -translate-x-1/2 bottom-6 z-[60] px-4 py-3 rounded-xl text-sm font-semibold text-white shadow-xl" style=${{ background: "#14264f" }}>${toast}</div>`}</div>`;
+      }
+      ReactDOM.createRoot(document.getElementById("root")).render(h`<${App}/>`);
+    </script>
+  </body>
+</html>
