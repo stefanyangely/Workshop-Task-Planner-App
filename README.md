@@ -20,3 +20,5 @@ Aplikasi web untuk mengelola tugas, deadline, jadwal belajar, dan produktivitas 
 ## Teknologi
 
 React, Tailwind CSS, dan LocalStorage
+
+<img width="1878" height="994" alt="Dashboard StudyFlow" src="https://github.com/user-attachments/assets/14303aea-d7e6-4489-888c-f74b27bd6bd8" />
